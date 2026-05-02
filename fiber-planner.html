@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-HK" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>光纖排班策略計算器</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  --bg:#f7f6f2;--surface:#f9f8f5;--surface2:#fbfbf9;--offset:#f3f0ec;
+  --border:#d4d1ca;--divider:#dcd9d5;
+  --text:#28251d;--muted:#7a7974;--faint:#bab9b4;
+  --primary:#01696f;--primary-h:#0c4e54;--primary-hl:#cedcd8;
+  --success:#437a22;--success-hl:#d4dfcc;
+  --warn:#964219;--warn-hl:#ddcfc6;
+  --gold:#d19900;--gold-hl:#e9e0c6;
+  --error:#a12c7b;
+  --sh-sm:0 1px 2px oklch(0.2 0.01 80/0.06);
+  --sh-md:0 4px 12px oklch(0.2 0.01 80/0.08);
+  --r-sm:0.375rem;--r-md:0.5rem;--r-lg:0.75rem;--r-xl:1rem;--r-full:9999px;
+  --tr:180ms cubic-bezier(0.16,1,0.3,1);
+  --font:'Satoshi',system-ui,sans-serif;
+}
+[data-theme="dark"]{
+  --bg:#171614;--surface:#1c1b19;--surface2:#201f1d;--offset:#22211f;
+  --border:#393836;--divider:#262523;
+  --text:#cdccca;--muted:#797876;--faint:#5a5957;
+  --primary:#4f98a3;--primary-h:#227f8b;--primary-hl:#313b3b;
+  --success:#6daa45;--success-hl:#3a4435;
+  --warn:#bb653b;--warn-hl:#564942;
+  --gold:#e8af34;--gold-hl:#4d4332;
+  --error:#d163a7;
+  --sh-sm:0 1px 2px oklch(0 0 0/0.2);--sh-md:0 4px 12px oklch(0 0 0/0.3);
+}
+@media(prefers-color-scheme:light){:root:not([data-theme]){--bg:#f7f6f2;--surface:#f9f8f5;--surface2:#fbfbf9;--offset:#f3f0ec;--border:#d4d1ca;--divider:#dcd9d5;--text:#28251d;--muted:#7a7974;--faint:#bab9b4;--primary:#01696f;--primary-h:#0c4e54;--primary-hl:#cedcd8;--success:#437a22;--success-hl:#d4dfcc;--warn:#964219;--warn-hl:#ddcfc6;--gold:#d19900;--gold-hl:#e9e0c6;}}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{min-height:100dvh;font-family:var(--font);font-size:clamp(0.9rem,0.85rem + 0.25vw,1rem);color:var(--text);background:var(--bg);line-height:1.6}
+input,button,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+
+.app{max-width:860px;margin:0 auto;padding:1.25rem 1rem}
+
+/* Range slider */
+input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:9999px;background:var(--border);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 2px 6px oklch(0 0 0/0.25)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--primary);cursor:pointer;border:none}
+
+/* State hint */
+.state-hint{font-size:0.75rem;color:var(--muted);align-self:center;padding:0.4rem 0}
+.state-row{padding:0.6rem 0.75rem;background:var(--offset);border-radius:var(--r-md);align-items:center}
+.field input[type=number]{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:0.55rem 0.7rem;font-size:0.875rem;color:var(--text)}
+.field input[type=number]:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-hl);outline:none}
+
+/* Header */
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding-bottom:0.85rem;border-bottom:1px solid var(--divider)}
+.logo{display:flex;align-items:center;gap:0.6rem}
+.logo svg{flex-shrink:0}
+.logo-name{font-size:clamp(1rem,0.9rem + 0.5vw,1.25rem);font-weight:700;letter-spacing:-0.02em}
+.logo-sub{font-size:0.72rem;color:var(--muted)}
+.btn-theme{width:36px;height:36px;border-radius:var(--r-full);display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px solid var(--border);transition:all var(--tr)}
+.btn-theme:hover{color:var(--text);background:var(--offset)}
+
+/* Input Card */
+.input-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:1.1rem 1.25rem;margin-bottom:1.25rem;box-shadow:var(--sh-sm)}
+.input-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:0.75rem}
+.field{display:flex;flex-direction:column;gap:0.3rem}
+.field label{font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap}
+.field select,.field input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:0.55rem 0.75rem;font-size:0.875rem;color:var(--text);transition:border-color var(--tr),box-shadow var(--tr)}
+.field select{min-width:135px}
+.field input[type=time]{width:105px}
+.field select:focus,.field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-hl);outline:none}
+.btn-calc{display:inline-flex;align-items:center;gap:0.4rem;background:var(--primary);color:#fff;padding:0.58rem 1.25rem;border-radius:var(--r-full);font-size:0.875rem;font-weight:600;box-shadow:var(--sh-sm);transition:background var(--tr),box-shadow var(--tr);white-space:nowrap;align-self:flex-end}
+.btn-calc:hover{background:var(--primary-h);box-shadow:var(--sh-md)}
+@media(max-width:560px){.input-row{flex-direction:column;align-items:stretch}.field select,.field input{width:100%!important}}
+
+/* Results */
+#results{display:none}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:1.1rem 1.25rem;margin-bottom:1rem;box-shadow:var(--sh-sm)}
+.card-title{font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.85rem;display:flex;align-items:center;gap:0.4rem}
+
+/* Best pick banner */
+.best-banner{background:oklch(from var(--primary) l c h / 0.1);border:1.5px solid var(--primary);border-radius:var(--r-lg);padding:0.85rem 1.1rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.85rem}
+.best-icon{font-size:1.6rem;flex-shrink:0}
+.best-label{font-size:0.75rem;color:var(--primary);font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
+.best-val{font-size:clamp(1rem,0.9rem + 0.5vw,1.2rem);font-weight:700;color:var(--text);margin-top:0.1rem}
+.best-reason{font-size:0.78rem;color:var(--muted);margin-top:0.2rem}
+
+/* Comparison grid */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.6rem}
+.comp-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:0.65rem 0.85rem;position:relative;transition:border-color var(--tr)}
+.comp-card.best{border-color:var(--primary);background:oklch(from var(--primary) l c h / 0.06)}
+.comp-card .cc-tag{font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em}
+.comp-card .cc-count{font-size:1.4rem;font-weight:700;margin:0.15rem 0}
+.comp-card .cc-count.good{color:var(--success)}
+.comp-card .cc-count.mid{color:var(--gold)}
+.comp-card .cc-count.bad{color:var(--warn)}
+.comp-card .cc-desc{font-size:0.72rem;color:var(--muted)}
+.best-star{position:absolute;top:0.5rem;right:0.6rem;font-size:0.65rem;background:var(--primary);color:#fff;padding:0.15rem 0.45rem;border-radius:var(--r-full);font-weight:700}
+
+/* Strategy table */
+.strat-table{width:100%;border-collapse:collapse;font-size:0.82rem}
+.strat-table th{background:var(--offset);color:var(--muted);font-weight:600;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.55rem 0.75rem;text-align:left;border-bottom:2px solid var(--border)}
+.strat-table td{padding:0.6rem 0.75rem;border-bottom:1px solid var(--divider);vertical-align:middle}
+.strat-table tr:last-child td{border-bottom:none}
+.strat-table tr.me td{background:oklch(from var(--primary) l c h / 0.05)}
+.strat-table tr.rest td{opacity:0.5}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:0.25rem;padding:0.18rem 0.55rem;border-radius:var(--r-full);font-size:0.68rem;font-weight:700;white-space:nowrap}
+.b-early{background:var(--gold-hl);color:var(--gold)}
+.b-night{background:var(--primary-hl);color:var(--primary)}
+.b-rest{background:var(--offset);color:var(--muted)}
+.b-ok{background:var(--success-hl);color:var(--success)}
+.b-warn{background:var(--warn-hl);color:var(--warn)}
+.b-me{background:var(--primary-hl);color:var(--primary)}
+
+.action-pill{display:inline-flex;align-items:center;gap:0.3rem;font-size:0.75rem;font-weight:600;padding:0.2rem 0.6rem;border-radius:var(--r-full);white-space:nowrap}
+.ap-watch{background:var(--success-hl);color:var(--success)}
+.ap-swap{background:var(--warn-hl);color:var(--warn)}
+.ap-rest{background:var(--offset);color:var(--muted);font-style:italic}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="Logo">
+        <circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.2" opacity="0.15"/>
+        <path d="M4 16 Q10 7 16 16 Q22 25 28 16" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="4" cy="16" r="2.2" fill="var(--primary)"/>
+        <circle cx="28" cy="16" r="2.2" fill="var(--primary)"/>
+      </svg>
+      <div>
+        <div class="logo-name">光纖排班策略</div>
+        <div class="logo-sub">Fiber Draw Planner · 甲班</div>
+      </div>
+    </div>
+    <button class="btn-theme" data-theme-toggle aria-label="切換主題">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </header>
+
+  <div class="input-card">
+    <div class="input-row" style="margin-bottom:0.85rem">
+      <div class="field">
+        <label>今天是甲班</label>
+        <select id="cycle-day">
+          <option value="0">早班第1天</option>
+          <option value="1" selected>早班第2天</option>
+          <option value="2">夜班第1天</option>
+          <option value="3">夜班第2天</option>
+          <option value="4">休假第1天</option>
+          <option value="5">休假第2天</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>現在時間</label>
+        <input type="time" id="now-time" value="17:50" oninput="updateStopAtHint()">
+      </div>
+      <div class="field">
+        <label>機台現在狀態</label>
+        <select id="machine-state" onchange="onStateChange()">
+          <option value="running">🔄 生產中</option>
+          <option value="stopped">🔴 已停機</option>
+          <option value="inspection">🔧 點檢中</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 生產中：兩種輸入模式切換 -->
+    <div id="row-running" class="state-row" style="margin-bottom:0.85rem;padding:0.85rem 1rem">
+      <!-- 模式切換 Tab -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem">
+        <button id="tab-remain" onclick="setRunMode('remain')"
+          style="flex:1;padding:0.35rem 0;border-radius:var(--r-full);font-size:0.75rem;font-weight:600;border:1.5px solid var(--primary);background:var(--primary);color:#fff;cursor:pointer">
+          ⏱ 輸入剩餘時間
+        </button>
+        <button id="tab-stopat" onclick="setRunMode('stopat')"
+          style="flex:1;padding:0.35rem 0;border-radius:var(--r-full);font-size:0.75rem;font-weight:600;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">
+          🕐 輸入停機時間
+        </button>
+      </div>
+
+      <!-- 剩餘時間滑桿 -->
+      <div id="mode-remain">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+          <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">現棒剩餘時間</label>
+          <span id="remain-display" style="font-size:1.1rem;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums">15h 30m</span>
+        </div>
+        <input type="range" id="remain-slider" min="0" max="1020" step="5" value="930"
+          oninput="updateRemainDisplay(this.value)"
+          style="width:100%;accent-color:var(--primary);cursor:pointer">
+        <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:var(--faint);margin-top:0.25rem">
+          <span>0h</span><span>4h15m</span><span>8h30m</span><span>12h45m</span><span>17h</span>
+        </div>
+      </div>
+
+      <!-- 停機時間輸入 -->
+      <div id="mode-stopat" style="display:none">
+        <label style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:0.4rem">預計停機時間</label>
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <input type="time" id="stopat-time" value="09:20"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:0.55rem 0.75rem;font-size:1rem;font-weight:600;color:var(--text)">
+          <span id="stopat-remain-hint" style="font-size:0.78rem;color:var(--muted)">系統自動計算剩餘</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已停機：直接用現在時間作換棒時間 -->
+    <div id="row-stopped" class="input-row state-row" style="display:none;margin-bottom:0.85rem">
+      <div class="state-hint" style="color:var(--warn)">⏹ 以現在時間作為停機／換棒起始點計算</div>
+    </div>
+
+    <!-- 點檢：停機時間 + 點檢生產準備時間 6~8 小時 -->
+    <div id="row-inspection" class="input-row state-row" style="display:none;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.75rem">
+      <div class="field">
+        <label>停機時間</label>
+        <input type="time" id="inspection-stop-time" value="08:00">
+      </div>
+      <div class="field">
+        <label>點檢完成需時</label>
+        <select id="inspection-hours">
+          <option value="6">6 小時（最快）</option>
+          <option value="7" selected>7 小時（正常）</option>
+          <option value="8">8 小時（最慢）</option>
+        </select>
+      </div>
+      <div class="state-hint" style="color:var(--gold)">🔧 系統會計算快 6h / 慢 8h 完成點檢對甲班換棒次數的影響，並建議你今天做快定做慢</div>
+    </div>
+
+    <button class="btn-calc" onclick="calculate()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      計算策略
+    </button>
+  </div>
+
+  <div id="results">
+    <div class="card">
+      <div class="card-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        最佳策略建議
+      </div>
+      <div id="best-banner"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+        四種方案比較（換棒落在甲班次數）
+      </div>
+      <div class="comp-grid" id="comp-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        未來排班攻略（最佳方案）
+      </div>
+      <div style="overflow-x:auto">
+        <table class="strat-table" id="strat-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DRAW_SPEED = 2400;
+const KM_SHORT = 2100, KM_STD = 2200, KM_LONG = 2300;
+const PREP_FAST = 90, PREP_SLOW = 120;
+
+function drawMin(km){ return km * 1000 / DRAW_SPEED; }
+
+let _base, _cycleDay;
+
+function getShift(dateObj, band){
+  const offsets = { '甲': _cycleDay, '乙': (_cycleDay+4)%6, '丙': (_cycleDay+2)%6 };
+  const cycle = ['早班','早班','夜班','夜班','休','休'];
+  const diff = Math.round((dateObj - _base) / 86400000);
+  return cycle[((diff + offsets[band]) % 6 + 6) % 6];
+}
+
+function inJia(dt){
+  const h = dt.getHours();
+  let d;
+  if(h>=8&&h<20){ d=new Date(dt); d.setHours(0,0,0,0); return getShift(d,'甲')==='早班'; }
+  else if(h>=20){ d=new Date(dt); d.setHours(0,0,0,0); return getShift(d,'甲')==='夜班'; }
+  else{ d=new Date(dt.getTime()-86400000); d.setHours(0,0,0,0); return getShift(d,'甲')==='夜班'; }
+}
+
+function whoOn(dt){
+  const h=dt.getHours(); let d, period;
+  if(h>=8&&h<20){d=new Date(dt);d.setHours(0,0,0,0);period='早班';}
+  else if(h>=20){d=new Date(dt);d.setHours(0,0,0,0);period='夜班';}
+  else{d=new Date(dt.getTime()-86400000);d.setHours(0,0,0,0);period='夜班';}
+  for(const b of['甲','乙','丙']) if(getShift(d,b)===period) return b;
+  return '?';
+}
+
+function fmt(dt){
+  const wds=['日','一','二','三','四','五','六'];
+  return `${dt.getMonth()+1}/${dt.getDate()}(${wds[dt.getDay()]}) ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+}
+function fmtT(dt){ return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`; }
+function fmtD(dt){ const wds=['日','一','二','三','四','五','六']; return `${dt.getMonth()+1}/${dt.getDate()}(週${wds[dt.getDay()]})`; }
+
+function simulate(stopDt, km, prepMin){
+  const dm = drawMin(km) * 60000;
+  const pm = prepMin * 60000;
+  // 停機時間 = 本棒換棒開始，棒完工 = 停機 + 準備 + 拉絲
+  const p1End = new Date(stopDt.getTime() + pm + dm);
+  const preforms = [];
+  let ps = p1End;
+  for(let i=0;i<10;i++){
+    const ds = new Date(ps.getTime() + pm);
+    const de = new Date(ds.getTime() + dm);
+    preforms.push({ num: i+2, prep: ps, draw: ds, end: de, jia: inJia(ps) });
+    ps = de;
+  }
+  const conflicts = preforms.filter(p=>p.jia).length;
+  return { conflicts, preforms, p1End };
+}
+
+function setRunMode(mode){
+  const mRemain = document.getElementById('mode-remain');
+  const mStopAt = document.getElementById('mode-stopat');
+  const tabR = document.getElementById('tab-remain');
+  const tabS = document.getElementById('tab-stopat');
+  if(mode==='remain'){
+    mRemain.style.display='block'; mStopAt.style.display='none';
+    tabR.style.background='var(--primary)'; tabR.style.color='#fff'; tabR.style.borderColor='var(--primary)';
+    tabS.style.background='transparent'; tabS.style.color='var(--muted)'; tabS.style.borderColor='var(--border)';
+  } else {
+    mRemain.style.display='none'; mStopAt.style.display='block';
+    tabS.style.background='var(--primary)'; tabS.style.color='#fff'; tabS.style.borderColor='var(--primary)';
+    tabR.style.background='transparent'; tabR.style.color='var(--muted)'; tabR.style.borderColor='var(--border)';
+    updateStopAtHint();
+  }
+}
+
+function updateStopAtHint(){
+  const nowVal = document.getElementById('now-time').value || '17:50';
+  const stopVal = document.getElementById('stopat-time').value;
+  if(!stopVal) return;
+  const [nh,nm] = nowVal.split(':').map(Number);
+  const [sh,sm] = stopVal.split(':').map(Number);
+  let diffMin = (sh*60+sm) - (nh*60+nm);
+  if(diffMin < 0) diffMin += 1440; // 跨午夜
+  const h = Math.floor(diffMin/60), m = diffMin%60;
+  document.getElementById('stopat-remain-hint').textContent = `= 剩餘 ${h}h ${String(m).padStart(2,'0')}m`;
+}
+
+function updateRemainDisplay(val){
+  const total = parseInt(val);
+  const h = Math.floor(total/60), m = total%60;
+  document.getElementById('remain-display').textContent = h+'h '+String(m).padStart(2,'0')+'m';
+}
+
+function onStateChange(){
+  const state = document.getElementById('machine-state').value;
+  document.getElementById('row-running').style.display = state==='running' ? 'flex' : 'none';
+  document.getElementById('row-stopped').style.display = state==='stopped' ? 'flex' : 'none';
+  document.getElementById('row-inspection').style.display = state==='inspection' ? 'flex' : 'none';
+}
+
+function calculate(){
+  const cycleDay = parseInt(document.getElementById('cycle-day').value);
+  const timeVal = document.getElementById('now-time').value || '17:50';
+  const [sh, sm] = timeVal.split(':').map(Number);
+  const machineState = document.getElementById('machine-state').value;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  _base = today;
+  _cycleDay = cycleDay;
+
+  const nowDt = new Date(today); nowDt.setHours(sh, sm, 0, 0);
+
+  // 計算「停機基準點」（即從哪個時間開始計算換棒策略）
+  let stopDt;
+  if(machineState === 'running'){
+    const runMode = document.getElementById('mode-remain').style.display !== 'none' ? 'remain' : 'stopat';
+    let remainTotalMin;
+    if(runMode === 'remain'){
+      remainTotalMin = parseInt(document.getElementById('remain-slider').value) || 0;
+    } else {
+      const stopAtVal = document.getElementById('stopat-time').value || '09:20';
+      const [sah, sam] = stopAtVal.split(':').map(Number);
+      const stopAtDt = new Date(today); stopAtDt.setHours(sah, sam, 0, 0);
+      remainTotalMin = Math.round((stopAtDt - nowDt) / 60000);
+      if(remainTotalMin < 0) remainTotalMin += 1440; // 跨午夜
+    }
+    // 現棒完工時間 = 現在 + 剩餘時間，完工後立即可換棒
+    stopDt = new Date(nowDt.getTime() + remainTotalMin*60000);
+  } else if(machineState === 'stopped'){
+    // 已停機：現在即為換棒起始點
+    stopDt = nowDt;
+  } else {
+    // 點檢：停機時間 + 點檢完成時數
+    const inspStopVal = document.getElementById('inspection-stop-time').value || '08:00';
+    const [ish, ism] = inspStopVal.split(':').map(Number);
+    const inspStopDt = new Date(today); inspStopDt.setHours(ish, ism, 0, 0);
+    const inspH = parseInt(document.getElementById('inspection-hours').value) || 7;
+    stopDt = new Date(inspStopDt.getTime() + inspH*3600000);
+    window._inspMode = true;
+    window._inspStopDt = inspStopDt;
+  }
+  if(machineState !== 'inspection') window._inspMode = false;
+
+  // 點檢模式：先計算快(6h) vs 慢(8h) 對甲班衝突的影響
+  let inspBanner = '';
+  if(window._inspMode && window._inspStopDt){
+    const fast6 = new Date(window._inspStopDt.getTime() + 6*3600000);
+    const slow8 = new Date(window._inspStopDt.getTime() + 8*3600000);
+    // 用標準棒比較
+    const c6 = simulate(fast6, KM_STD, PREP_FAST).conflicts;
+    const c8 = simulate(slow8, KM_STD, PREP_FAST).conflicts;
+    const rec = c6 <= c8
+      ? `⚡ 建議：<strong>做快（6小時完成點檢）</strong> — 甲班換棒次數較少（${c6} 次 vs 慢做 ${c8} 次）`
+      : `🐢 建議：<strong>做慢（8小時完成點檢）</strong> — 甲班換棒次數較少（${c8} 次 vs 快做 ${c6} 次）`;
+    const same = c6 === c8 ? `（快慢相同，${c6} 次）` : '';
+    inspBanner = `<div style="background:var(--gold-hl);border:1px solid var(--gold);border-radius:var(--r-lg);padding:0.7rem 1rem;margin-bottom:0.75rem;font-size:0.82rem;color:var(--text)">
+      <strong style="color:var(--gold)">🔧 點檢快慢建議${same}</strong><br>
+      <span style="display:inline-flex;gap:1.5rem;margin-top:0.3rem;flex-wrap:wrap">
+        <span>快做完（6h）→ 停機完後 ${fmtT(fast6)} 開始生產 → <strong>${c6}</strong> 次甲班換棒</span>
+        <span>慢做完（8h）→ 停機完後 ${fmtT(slow8)} 開始生產 → <strong>${c8}</strong> 次甲班換棒</span>
+      </span><br>
+      <span style="margin-top:0.4rem;display:block">${rec}</span>
+    </div>`;
+  }
+
+  // 4種方案
+  const scenarios = [
+    { km: KM_SHORT, prep: PREP_FAST, label: '短棒 + 快速', km_label:'短棒 2100km', prep_label:'快 1.5h' },
+    { km: KM_SHORT, prep: PREP_SLOW, label: '短棒 + 慢速', km_label:'短棒 2100km', prep_label:'慢 2.0h' },
+    { km: KM_LONG,  prep: PREP_FAST, label: '長棒 + 快速', km_label:'長棒 2300km', prep_label:'快 1.5h' },
+    { km: KM_LONG,  prep: PREP_SLOW, label: '長棒 + 慢速', km_label:'長棒 2300km', prep_label:'慢 2.0h' },
+  ];
+
+  const results = scenarios.map(s => ({ ...s, ...simulate(stopDt, s.km, s.prep) }));
+  const minConflicts = Math.min(...results.map(r=>r.conflicts));
+  const best = results.find(r=>r.conflicts===minConflicts);
+
+  // 最佳建議
+  const kmRec = best.km < 2200 ? '短棒（2100km）' : '長棒（2300km）';
+  const prepRec = best.prep === 90 ? '快速生產（1.5h準備）' : '拖慢生產（2h準備）';
+  const kmEmoji = best.km < 2200 ? '📦' : '📏';
+  const prepEmoji = best.prep === 90 ? '⚡' : '🐢';
+
+  document.getElementById('best-banner').innerHTML = inspBanner + `
+    <div class="best-banner">
+      <div class="best-icon">${kmEmoji}</div>
+      <div>
+        <div class="best-label">揀棒建議</div>
+        <div class="best-val">${kmRec} · ${prepEmoji} ${prepRec}</div>
+        <div class="best-reason">未來10支棒中，僅 <strong>${minConflicts}</strong> 次換棒落在甲班當值時段（越少越好）</div>
+      </div>
+    </div>`;
+
+  // 方案比較格子
+  const compGrid = document.getElementById('comp-grid');
+  compGrid.innerHTML = results.map(r => {
+    const isBest = r.conflicts === minConflicts;
+    const countClass = r.conflicts <= 2 ? 'good' : r.conflicts <= 3 ? 'mid' : 'bad';
+    return `<div class="comp-card${isBest?' best':''}">
+      ${isBest?'<span class="best-star">★ 最佳</span>':''}
+      <div class="cc-tag">${r.km_label}</div>
+      <div class="cc-tag" style="margin-top:0.1rem">${r.prep_label}</div>
+      <div class="cc-count ${countClass}">${r.conflicts}</div>
+      <div class="cc-desc">次甲班換棒</div>
+    </div>`;
+  }).join('');
+
+  // 攻略表（用最佳方案）
+  const { preforms, p1End } = best;
+  const wds = ['日','一','二','三','四','五','六'];
+
+  // 建立每天的班次視圖
+  const days = [];
+  for(let i=0;i<10;i++){
+    const d = new Date(today.getTime() + i*86400000);
+    const jia = getShift(d,'甲'), yi = getShift(d,'乙'), bing = getShift(d,'丙');
+    days.push({ d, jia, yi, bing });
+  }
+
+  // 找每個甲班班次的事件
+  function getJiaShiftEvents(shiftType, shiftDate){
+    const sStart = new Date(shiftDate);
+    sStart.setHours(shiftType==='早班'?8:20, 0, 0, 0);
+    const sEnd = new Date(shiftType==='早班'?shiftDate.getTime():shiftDate.getTime()+86400000);
+    sEnd.setHours(shiftType==='早班'?20:8, 0, 0, 0);
+
+    const events = [];
+    // 棒#1（現在進行中）
+    if(p1End > sStart && p1End <= sEnd) events.push({ type:'end1', time: p1End });
+    if(stopDt <= sStart && p1End > sEnd) events.push({ type:'running1' });
+
+    for(const p of preforms){
+      if(p.prep >= sStart && p.prep < sEnd) events.push({ type:'prep', p, time:p.prep });
+      if(p.draw >= sStart && p.draw < sEnd) events.push({ type:'draw', p, time:p.draw });
+      if(p.prep < sStart && p.end > sEnd) events.push({ type:'running', p });
+    }
+    return events;
+  }
+
+  let tableHtml = '<thead><tr><th>日期 / 班次</th><th>甲班狀態</th><th>建議行動</th><th>其他班</th></tr></thead><tbody>';
+
+  for(const day of days){
+    const { d, jia, yi, bing } = day;
+    // dateStr 已整合到行渲染中，此行保留做備用
+
+    // 甲班badge
+    const jiaBadge = jia==='早班'?`<span class="badge b-early">☀ 早班</span>`:
+                     jia==='夜班'?`<span class="badge b-night">★ 夜班</span>`:
+                     `<span class="badge b-rest">😴 休</span>`;
+
+    const isMe = jia !== '休';
+    const isRest = jia === '休';
+
+    let status = '', action = '';
+
+    if(isRest){
+      status = '<span style="color:var(--faint)">—</span>';
+      action = '<span class="action-pill ap-rest">休假日</span>';
+    } else {
+      const events = getJiaShiftEvents(jia, d);
+      const prepEvts = events.filter(e=>e.type==='prep');
+      const runEvts = events.filter(e=>e.type==='running'||e.type==='running1');
+      const end1Evts = events.filter(e=>e.type==='end1');
+
+      if(prepEvts.length > 0){
+        const e = prepEvts[0];
+        const shiftEnd = new Date(jia==='早班'?d.getTime():d.getTime()+86400000);
+        shiftEnd.setHours(jia==='早班'?20:8,0,0,0);
+        const minsLeft = Math.round((shiftEnd - e.time)/60000);
+        status = `棒#${e.p.num} 換棒 ${fmtT(e.time)}`;
+        action = minsLeft < 90
+          ? `<span class="action-pill ap-swap">⚡ 緊急換棒（距收班${minsLeft}分）</span>`
+          : `<span class="action-pill ap-swap">🔄 換棒 → 準備 → 開機</span>`;
+      } else if(end1Evts.length > 0){
+        status = `棒#1 完工 ${fmtT(end1Evts[0].time)}，立即換棒`;
+        action = `<span class="action-pill ap-swap">🔄 換棒 → 準備 → 開機</span>`;
+      } else if(runEvts.length > 0){
+        const pn = runEvts[0].type==='running1'?1:runEvts[0].p.num;
+        status = `棒#${pn} 拉絲中`;
+        action = `<span class="action-pill ap-watch">👁 監察機台</span>`;
+      } else {
+        status = '確認機台狀態';
+        action = `<span class="action-pill ap-watch">👁 監察機台</span>`;
+      }
+    }
+
+    // 其他班
+    const others = [['乙',yi],['丙',bing]].map(([b,s])=>{
+      if(s==='早班') return `<span class="badge b-early" style="font-size:0.62rem">${b} ☀</span>`;
+      if(s==='夜班') return `<span class="badge b-night" style="font-size:0.62rem">${b} ★</span>`;
+      return `<span class="badge b-rest" style="font-size:0.62rem">${b} 休</span>`;
+    }).join(' ');
+
+    // 計算當班拉絲時間 vs 停機時間
+    let drawMs2 = 0, stopMs2 = 0;
+    if(!isRest){
+      const sStart2 = new Date(jia==='早班'?d.getTime():d.getTime());
+      sStart2.setHours(jia==='早班'?8:20, 0, 0, 0);
+      const sEnd2 = new Date(jia==='早班'?d.getTime():d.getTime()+86400000);
+      sEnd2.setHours(jia==='早班'?20:8, 0, 0, 0);
+      const totalMs2 = sEnd2 - sStart2;
+      let cursor = sStart2.getTime();
+      const endMs = sEnd2.getTime();
+      const allPreforms = [{ draw: stopDt, end: best.p1End, prep: null },
+        ...best.preforms.map(p=>({ prep: p.prep, draw: p.draw, end: p.end }))];
+      while(cursor < endMs){
+        let found = false;
+        for(const p of allPreforms){
+          const ds = p.draw ? p.draw.getTime() : null;
+          const de = p.end ? p.end.getTime() : null;
+          const ps = p.prep ? p.prep.getTime() : null;
+          const pe = ds;
+          if(ds && ds <= cursor && cursor < de){
+            const seg = Math.min(de, endMs) - cursor;
+            drawMs2 += seg; cursor += seg; found = true; break;
+          }
+          if(ps && ps <= cursor && cursor < pe){
+            const seg = Math.min(pe, endMs) - cursor;
+            stopMs2 += seg; cursor += seg; found = true; break;
+          }
+        }
+        if(!found){ stopMs2 += 60000; cursor += 60000; }
+      }
+    }
+    const fmtHM = ms => { const h=Math.floor(ms/3600000); const m=Math.floor((ms%3600000)/60000); return h>0?`${h}h${String(m).padStart(2,'0')}m`:`${m}m`; };
+    // 找出當班停機時段（換棒準備時間）
+    let stopPeriods = [];
+    if(!isRest){
+      const sStart2b = new Date(jia==='早班'?d.getTime():d.getTime());
+      sStart2b.setHours(jia==='早班'?8:20, 0, 0, 0);
+      const sEnd2b = new Date(jia==='早班'?d.getTime():d.getTime()+86400000);
+      sEnd2b.setHours(jia==='早班'?20:8, 0, 0, 0);
+      const allPreforms2 = [{ draw: stopDt, end: best.p1End, prep: null },
+        ...best.preforms.map(p=>({ prep: p.prep, draw: p.draw, end: p.end }))];
+      for(const p of allPreforms2){
+        if(!p.prep) continue;
+        const ps = p.prep.getTime(), pe = p.draw.getTime();
+        if(pe > sStart2b.getTime() && ps < sEnd2b.getTime()){
+          const from = new Date(Math.max(ps, sStart2b.getTime()));
+          const to   = new Date(Math.min(pe, sEnd2b.getTime()));
+          stopPeriods.push(`${fmtT(from)}–${fmtT(to)}`);
+        }
+      }
+    }
+    const stopInfo2 = stopPeriods.length > 0
+      ? `停機 ${fmtHM(stopMs2)}（${stopPeriods.join('、')}）`
+      : `無停機`;
+    const stopInfo = stopPeriods.length > 0
+      ? `<span style="color:var(--warn)">⏸ ${stopInfo2}</span>`
+      : `<span style="color:var(--muted)">⏸ 無停機</span>`;
+    // 建立12小時能源條（每格30分鐘 = 24格）
+    let timeBarCells = '';
+    if(!isRest){
+      const sStartBar = new Date(jia==='早班'?d.getTime():d.getTime());
+      sStartBar.setHours(jia==='早班'?8:20, 0, 0, 0);
+      const allPreformsBar = [{ draw: stopDt, end: best.p1End, prep: null },
+        ...best.preforms.map(p=>({ prep: p.prep, draw: p.draw, end: p.end }))];
+      for(let seg=0; seg<24; seg++){
+        const segStart = new Date(sStartBar.getTime() + seg*30*60000);
+        const segMid   = new Date(segStart.getTime() + 15*60000);
+        let color = '#555'; // unknown
+        let found = false;
+        for(const p of allPreformsBar){
+          const ds = p.draw ? p.draw.getTime() : null;
+          const de = p.end ? p.end.getTime() : null;
+          const ps = p.prep ? p.prep.getTime() : null;
+          const pe = ds;
+          if(ds && segMid.getTime() >= ds && segMid.getTime() < de){ color='run'; found=true; break; }
+          if(ps && segMid.getTime() >= ps && segMid.getTime() < pe){ color='stop'; found=true; break; }
+        }
+        // hour label every 2 hours (4 cells)
+        const label = seg%4===0 ? `<span style="position:absolute;top:-16px;left:0;font-size:0.6rem;color:var(--faint);white-space:nowrap">${fmtT(segStart)}</span>` : '';
+        const bg = color==='run' ? 'var(--success)' : color==='stop' ? 'var(--warn)' : 'var(--border)';
+        const tooltip = fmtT(segStart)+'-'+fmtT(new Date(segStart.getTime()+30*60000));
+        timeBarCells += `<div title="${tooltip}" style="position:relative;flex:1;height:20px;background:${bg};border-radius:2px;min-width:0">${label}</div>`;
+      }
+    }
+    const energyBar = isRest ? '' : `
+      <div style="margin-top:0.6rem">
+        <div style="position:relative;padding-top:18px">
+          <div style="display:flex;gap:2px;border-radius:6px;overflow:visible">${timeBarCells}</div>
+          <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--faint);margin-top:4px">
+            <span>${jia==='早班'?'08:00':'20:00'}</span>
+            <span>${jia==='早班'?'14:00':'02:00'}</span>
+            <span>${jia==='早班'?'20:00':'08:00'}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;margin-top:0.35rem;font-size:0.7rem">
+          <span style="display:flex;align-items:center;gap:0.3rem"><span style="width:10px;height:10px;border-radius:2px;background:var(--success);display:inline-block"></span>拉絲 ${fmtHM(drawMs2)}</span>
+          <span style="display:flex;align-items:center;gap:0.3rem"><span style="width:10px;height:10px;border-radius:2px;background:var(--warn);display:inline-block"></span>${stopInfo2}</span>
+        </div>
+      </div>`;
+
+    const timeBar = isRest ? '' : energyBar;
+
+    // 合併 status 到 action 欄
+    const actionCell = isRest
+      ? action
+      : (status ? `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.25rem">${status}</div>${action}${timeBar}` : `${action}${timeBar}`);
+
+    tableHtml += `<tr class="${isRest?'rest':isMe?'me':''}">
+      <td><strong style="font-size:0.9rem">${d.getMonth()+1}/${d.getDate()}</strong> <span style="color:var(--muted);font-size:0.75rem">週${wds[d.getDay()]}</span><br>${jiaBadge}</td>
+      <td>${actionCell}</td>
+      <td>${others}</td>
+    </tr>`;
+  }
+  tableHtml += '</tbody>';
+  document.getElementById('strat-table').innerHTML = tableHtml;
+
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth'});
+}
+
+// Theme
+(function(){
+  const t=document.querySelector('[data-theme-toggle]'),r=document.documentElement;
+  let d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  r.setAttribute('data-theme',d);
+  const ic=m=>m==='dark'?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>':'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  t.innerHTML=ic(d);
+  t.addEventListener('click',()=>{d=d==='dark'?'light':'dark';r.setAttribute('data-theme',d);t.innerHTML=ic(d);});
+})();
+
+window.addEventListener('load', calculate);
+</script>
+</body>
+</html>
